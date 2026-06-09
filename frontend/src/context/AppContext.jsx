@@ -7,7 +7,7 @@ export const AppContext = createContext();
 export const AppContextProvider = ({ children }) => {
 
     const currency = "₹";
-    const backendUrl = "http://localhost:4000";
+    const backendUrl = import.meta.env.VITE_BACKEND_URL;
     const navigate = useNavigate();
     const [user, setuser] = useState(null);
     const [isseller, setisseller] = useState(false);
