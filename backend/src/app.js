@@ -11,7 +11,7 @@ import { stripeWebhooks } from './controllers/order.controller.js';
 
 const app = express();
 // Allow multiple origins
-const allowedOrigins = ['http://localhost:5173','e-commerce-chi-lilac-66.vercel.app']
+const allowedOrigins = ['http://localhost:5173','https://e-commerce-chi-lilac-66.vercel.app']
 
 app.post('/stripe',express.raw({type:'application/json'}),stripeWebhooks)
 
