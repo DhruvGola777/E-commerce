@@ -108,36 +108,44 @@ export const getAllOrders = async (req, res) => {
 export const stripeWebhooks = async (req, res) => {
     const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
     const sig = req.headers["stripe-signature"];
+    
     let event;
     try {
+        // Stripe expects the raw body for signature verification
         event = stripeInstance.webhooks.constructEvent(
             req.body,
             sig,
             process.env.STRIPE_WEBHOOK_SECRET
         );
     } catch (error) {
-        console.log("WEBHOOK ERROR:", error.message);
-        return res.status(400).send(`Webhooks Error:${error.message}`)
+        console.error("WEBHOOK SIGNATURE VERIFICATION FAILED:", error.message);
+        return res.status(400).send(`Webhook Error: ${error.message}`);
     }
-    console.log("RECEIVED EVENT TYPE:", event.type);
-    switch (event.type) {
-        case "checkout.session.completed": {
-            const session = event.data.object;
-            const { orderId, userId } = session.metadata;
-            console.log("PROCESSING SUCCESSFUL SESSION:", { orderId, userId });
+
+    console.log("STRIPE EVENT RECEIVED:", event.type);
+
+    if (event.type === "checkout.session.completed") {
+        const session = event.data.object;
+        const { orderId, userId } = session.metadata;
+
+        try {
+            console.log(`UPDATING DATABASE FOR ORDER: ${orderId}, USER: ${userId}`);
             
-            // Update order payment status
-            await Order.findByIdAndUpdate(orderId, { isPaid: true });
+            // 1. Mark Order as Paid
+            const orderUpdate = await Order.findByIdAndUpdate(orderId, { isPaid: true });
             
-            // Clear cart items for the user
-            await User.findByIdAndUpdate(userId, { cartItems: {} });
-            
-            console.log("DATABASE UPDATED SUCCESSFULLY FOR USER:", userId);
-            break;
+            // 2. Clear User Cart
+            const userUpdate = await User.findByIdAndUpdate(userId, { cartItems: {} });
+
+            if (orderUpdate && userUpdate) {
+                console.log("DATABASE UPDATED SUCCESSFULLY");
+            } else {
+                console.error("DATABASE UPDATE FAILED: Order or User not found", { orderId, userId });
+            }
+        } catch (dbError) {
+            console.error("DATABASE ERROR DURING WEBHOOK:", dbError.message);
         }
-        default:
-            console.log(`Unhandled event type ${event.type}`)
-            break;
     }
-    res.json({ received: true })
+
+    res.json({ received: true });
 }

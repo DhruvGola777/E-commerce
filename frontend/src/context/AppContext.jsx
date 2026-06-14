@@ -117,7 +117,11 @@ export const AppContextProvider = ({ children }) => {
                 toast.error(error.message)
             }
         }
-        if(user){
+        // Only update if user is logged in AND cartItems is not being reset from FetchUser
+        if(user && Object.keys(cartItems).length > 0){
+            updateCart();
+        } else if (user && Object.keys(cartItems).length === 0) {
+            // If cart is empty, we still want to sync that it's empty
             updateCart();
         }
     }, [cartItems])
