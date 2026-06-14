@@ -82,9 +82,9 @@ const Navbar = () => {
                 }}>All Products</NavLink>
                 {
                     user&&
-                    <NavLink to="/products" className="block" onClick={()=>{
+                    <NavLink to="/my-orders" className="block" onClick={()=>{
                     setOpen(false)
-                }}>My products</NavLink>
+                }}>My Orders</NavLink>
 
                 }
                 <NavLink to="/" className="block" onClick={()=>{

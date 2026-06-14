@@ -3,13 +3,15 @@ import { useAppContext } from '../../context/AppContext'
 import { useLocation } from 'react-router-dom';
 
 const Loading = () => {
-    const {navigate}=useAppContext();
+    const {navigate, FetchUser}=useAppContext();
     let {search}=useLocation();
     const query=new URLSearchParams(search)
     const nextUrl=query.get('next');
 
     useEffect(()=>{
         if (nextUrl) {
+            // Refresh user data (and cart) from backend
+            FetchUser();
             setTimeout(()=>{
                 navigate(`/${nextUrl}`)
             },5000)

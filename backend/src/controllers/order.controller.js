@@ -116,14 +116,23 @@ export const stripeWebhooks = async (req, res) => {
             process.env.STRIPE_WEBHOOK_SECRET
         );
     } catch (error) {
+        console.log("WEBHOOK ERROR:", error.message);
         return res.status(400).send(`Webhooks Error:${error.message}`)
     }
+    console.log("RECEIVED EVENT TYPE:", event.type);
     switch (event.type) {
         case "checkout.session.completed": {
             const session = event.data.object;
             const { orderId, userId } = session.metadata;
-            await Order.findByIdAndUpdate(orderId, { isPaid: true })
-            await User.findByIdAndUpdate(userId, { cartItems: {} })
+            console.log("PROCESSING SUCCESSFUL SESSION:", { orderId, userId });
+            
+            // Update order payment status
+            await Order.findByIdAndUpdate(orderId, { isPaid: true });
+            
+            // Clear cart items for the user
+            await User.findByIdAndUpdate(userId, { cartItems: {} });
+            
+            console.log("DATABASE UPDATED SUCCESSFULLY FOR USER:", userId);
             break;
         }
         default:
