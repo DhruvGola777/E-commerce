@@ -2,6 +2,7 @@ import Product from '../models/product.model.js'
 import Order from '../models/order.model.js'
 import User from '../models/user.model.js';
 import Address from '../models/address.model.js';
+import connectDB from '../config/db.js';
 import stripe from 'stripe';
 
 export const placeOrder = async (req, res) => {
@@ -57,6 +58,7 @@ export const placeOrderStripe = async (req, res) => {
             address,
             paymentType: "Online"
         });
+
         const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
         const line_items = productData.map((item) => {
             return {
@@ -70,6 +72,7 @@ export const placeOrderStripe = async (req, res) => {
                 quantity: item.quantity,
             }
         })
+
         const session = await stripeInstance.checkout.sessions.create({
             line_items,
             mode: "payment",
@@ -77,7 +80,13 @@ export const placeOrderStripe = async (req, res) => {
             cancel_url: `${origin}/cart`,
             metadata: {
                 orderId: order._id.toString(),
-                userId
+                userId: String(userId)
+            },
+            payment_intent_data: {
+                metadata: {
+                    orderId: order._id.toString(),
+                    userId: String(userId)
+                }
             }
         })
         res.json({ success: true, url: session.url })
@@ -133,7 +142,28 @@ export const stripeWebhooks = async (req, res) => {
 
     if (event.type === "checkout.session.completed") {
         const session = event.data.object;
-        const { orderId, userId } = session.metadata;
+        
+        // Ensure DB connection is established
+        try {
+            await connectDB();
+        } catch (connError) {
+            console.error("DB CONNECTION FAILED IN WEBHOOK:", connError.message);
+            return res.status(500).json({ error: "Database connection failed" });
+        }
+
+        // Try to get metadata from session or nested payment intent
+        const metadata = session.metadata || (session.payment_intent && typeof session.payment_intent === 'object' ? session.payment_intent.metadata : {});
+        const { orderId, userId } = metadata;
+
+        console.log("EXTRACTED METADATA:", { orderId, userId });
+
+        if (!orderId || !userId) {
+            console.error("CRITICAL ERROR: orderId or userId missing from session metadata", {
+                sessionMetadata: session.metadata,
+                paymentIntent: session.payment_intent
+            });
+            return res.json({ received: true, error: "Missing metadata" });
+        }
 
         try {
             console.log(`UPDATING DATABASE FOR ORDER: ${orderId}, USER: ${userId}`);
@@ -144,10 +174,15 @@ export const stripeWebhooks = async (req, res) => {
             if (orderUpdate && userUpdate) {
                 console.log("DATABASE UPDATED SUCCESSFULLY: Order set to Paid and Cart cleared");
             } else {
-                console.error("DATABASE UPDATE FAILED: Order or User not found", { orderId, userId });
+                console.error("DATABASE UPDATE FAILED: Order or User not found", { 
+                    orderId, 
+                    userId,
+                    orderFound: !!orderUpdate,
+                    userFound: !!userUpdate
+                });
             }
         } catch (dbError) {
-            console.error("DATABASE ERROR DURING WEBHOOK:", dbError.message);
+            console.error("DATABASE ERROR DURING WEBHOOK UPDATES:", dbError.message);
         }
     }
 

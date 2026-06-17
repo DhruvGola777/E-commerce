@@ -12,6 +12,9 @@ import { stripeWebhooks } from './controllers/order.controller.js';
 
 const app = express();
 
+// Stripe webhook must be first to avoid body-parser interference
+app.post('/stripe', express.raw({ type: 'application/json' }), stripeWebhooks)
+
 // Middleware to ensure DB connection
 app.use(async (req, res, next) => {
     try {
@@ -24,8 +27,6 @@ app.use(async (req, res, next) => {
 
 // Allow multiple origins
 const allowedOrigins = ['http://localhost:5173','https://e-commerce-chi-lilac-66.vercel.app']
-
-app.post('/stripe',express.raw({type:'application/json'}),stripeWebhooks)
 
 //Middleware configurations
 app.use(express.json());
