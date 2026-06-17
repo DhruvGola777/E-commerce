@@ -31,10 +31,11 @@ const Orders = () => {
                     <div className="flex gap-5 max-w-80">
                         <img className="w-12 h-12 object-cover " src={assets.box_icon} alt="boxIcon" />
                         <div>
-                            {order.items.map((item, index) => (
+                            {order.items && order.items.map((item, index) => (
                                 <div key={index} className="flex flex-col ">
                                     <p className="font-medium">
-                                        {item.product.name}{" "} <span className="text-primary"> x {item.quantity}</span>
+                                        {item.product ? item.product.name : "Unknown Product"}{" "} 
+                                        <span className="text-primary"> x {item.quantity}</span>
                                     </p>
                                 </div>
                             ))}
@@ -42,9 +43,14 @@ const Orders = () => {
                     </div>
 
                     <div className="text-sm md:text-base text-black/50">
-                        <p className='text-black/80'>{order.address.firstName} {order.address.lastName}</p>
-                        <p>{order.address.street}, {order.address.city},</p><p> {order.address.state},{order.address.zipcode}, {order.address.country}</p>
-                        <p>{order.address.phone}</p>
+                        {order.address ? (
+                            <>
+                                <p className='text-black/80'>{order.address.firstName} {order.address.lastName}</p>
+                                <p>{order.address.street}, {order.address.city},</p>
+                                <p>{order.address.state}, {order.address.zipcode}, {order.address.country}</p>
+                                <p>{order.address.phone}</p>
+                            </>
+                        ) : <p>No Address Provided</p>}
                     </div>
 
                     <p className="font-medium text-lg my-auto">{currency}{order.amount}</p>

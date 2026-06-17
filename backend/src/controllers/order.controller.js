@@ -1,7 +1,9 @@
 import Product from '../models/product.model.js'
 import Order from '../models/order.model.js'
 import User from '../models/user.model.js';
+import Address from '../models/address.model.js';
 import stripe from 'stripe';
+
 export const placeOrder = async (req, res) => {
     try {
         const userId = req.userId;
@@ -27,6 +29,7 @@ export const placeOrder = async (req, res) => {
         res.json({ success: false, message: error.message })
     }
 }
+
 export const placeOrderStripe = async (req, res) => {
     try {
         const userId = req.userId;
@@ -82,36 +85,40 @@ export const placeOrderStripe = async (req, res) => {
         res.json({ success: false, message: error.message })
     }
 }
+
 export const getUserOrders = async (req, res) => {
     try {
         const userId = req.userId;
         const orders = await Order.find({ userId })
-            .populate("items.product").populate("address").sort({ createdAt: -1 })
+            .populate("items.product")
+            .populate("address")
+            .sort({ createdAt: -1 })
         res.json({ success: true, orders })
     } catch (error) {
         res.json({ success: false, message: error.message })
     }
 }
+
 export const getAllOrders = async (req, res) => {
     try {
-        const orders = await Order.find({
-            $or: [
-                { paymentType: "COD" },
-                { isPaid: true }
-            ]
-        }).populate("items.product address").sort({ createdAt: -1 })
+        // Show all orders to the seller, not just COD/Paid
+        // This helps in debugging why isPaid might be false
+        const orders = await Order.find({})
+            .populate("items.product")
+            .populate("address")
+            .sort({ createdAt: -1 })
         res.json({ success: true, orders })
     } catch (error) {
         res.json({ success: false, message: error.message })
     }
 }
+
 export const stripeWebhooks = async (req, res) => {
     const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
     const sig = req.headers["stripe-signature"];
     
     let event;
     try {
-        // Stripe expects the raw body for signature verification
         event = stripeInstance.webhooks.constructEvent(
             req.body,
             sig,
@@ -131,14 +138,11 @@ export const stripeWebhooks = async (req, res) => {
         try {
             console.log(`UPDATING DATABASE FOR ORDER: ${orderId}, USER: ${userId}`);
             
-            // 1. Mark Order as Paid
-            const orderUpdate = await Order.findByIdAndUpdate(orderId, { isPaid: true });
-            
-            // 2. Clear User Cart
-            const userUpdate = await User.findByIdAndUpdate(userId, { cartItems: {} });
+            const orderUpdate = await Order.findByIdAndUpdate(orderId, { isPaid: true }, { new: true });
+            const userUpdate = await User.findByIdAndUpdate(userId, { cartItems: {} }, { new: true });
 
             if (orderUpdate && userUpdate) {
-                console.log("DATABASE UPDATED SUCCESSFULLY");
+                console.log("DATABASE UPDATED SUCCESSFULLY: Order set to Paid and Cart cleared");
             } else {
                 console.error("DATABASE UPDATE FAILED: Order or User not found", { orderId, userId });
             }
